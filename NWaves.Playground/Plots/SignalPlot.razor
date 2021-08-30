@@ -1,0 +1,51 @@
+﻿@if (_signal != null)
+{
+    <BECanvas Width="700" Height="120" @ref="_canvasReference"></BECanvas>
+}
+
+@code {
+    DiscreteSignal _signal;
+
+    Canvas2DContext _context;
+    BECanvasComponent _canvasReference;
+
+    public async Task UpdateAsync(DiscreteSignal signal)
+    {
+        _signal = signal;
+        
+        StateHasChanged();
+
+        if (_context is null)
+        {
+            _context = await _canvasReference.CreateCanvas2DAsync();
+            await _context.SetStrokeStyleAsync("purple");
+        }
+
+        var stride = Math.Max(1, (int)(signal.Length / _canvasReference.Width));
+
+        var offset = _canvasReference.Height / 2;
+
+        var i = 0;
+        var x = 0.0;
+        while (i < signal.Length - stride)
+        {
+            var j = 0;
+            var min = 0.0;
+            var max = 0.0;
+            while (j < stride)
+            {
+                if (signal[i + j] > max) max = signal[i + j];
+                if (signal[i + j] < min) min = signal[i + j];
+                j++;
+            }
+
+            await _context.MoveToAsync(x, -min * offset + offset);
+            await _context.LineToAsync(x, -max * offset + offset);
+
+            x++;
+            i += stride;
+        }
+
+        await _context.StrokeAsync();
+    }
+}

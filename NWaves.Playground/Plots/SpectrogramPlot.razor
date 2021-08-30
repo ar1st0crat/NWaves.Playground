@@ -1,0 +1,92 @@
+﻿@using SciColorMaps.Portable;
+
+@if (_image64 != null)
+{
+    <img @ref="@_spectrogramImage" src="@_image64" width="700" height="100" style="margin-bottom: 20px;" />
+}
+
+@code {
+    string _image64;
+    ElementReference _spectrogramImage;
+
+    public void Update(List<float[]> spectrogram, string colormapName = "magma")
+    {
+        if (spectrogram is null)
+        {
+            throw new ArgumentNullException("Spectrogram must be not null");
+        }
+
+        if (!spectrogram.Any())
+        {
+            throw new ArgumentNullException("Spectrogram must be not empty");
+        }
+
+        // post-process spectrogram for better visualization
+
+        var spectraCount = spectrogram.Count;
+
+        var minValue = spectrogram.SelectMany(s => s).Min();
+        var maxValue = spectrogram.SelectMany(s => s).Max();
+
+        for (var i = 0; i < spectraCount; i++)
+        {
+            spectrogram[i] = spectrogram[i].Select(s =>
+            {
+                var sqrt = (float)Math.Sqrt(s);
+                return sqrt * 3 < maxValue ? sqrt * 3 : sqrt / 1.5f;
+            })
+            .ToArray();
+        }
+        maxValue /= 12;
+
+        var cmap = new ColorMap(colormapName, minValue, maxValue);
+
+
+        var width = spectrogram.Count;
+        var height = spectrogram[0].Length;
+
+        var _bmpBufferSize = width * height * 4;
+
+        byte[] _bmpBytes = new byte[_bmpBufferSize + 54];
+
+        // 0~2 "BM"
+        _bmpBytes[0] = 0x42;
+        _bmpBytes[1] = 0x4d;
+
+        Array.Copy(BitConverter.GetBytes(_bmpBufferSize + 54), 0, _bmpBytes, 2, 4);
+        Array.Copy(BitConverter.GetBytes(0), 0, _bmpBytes, 6, 2);
+        Array.Copy(BitConverter.GetBytes(0), 0, _bmpBytes, 8, 2);
+        Array.Copy(BitConverter.GetBytes(54), 0, _bmpBytes, 10, 4);
+        Array.Copy(BitConverter.GetBytes(40), 0, _bmpBytes, 14, 4);
+        Array.Copy(BitConverter.GetBytes(width), 0, _bmpBytes, 18, 4);
+        Array.Copy(BitConverter.GetBytes(height), 0, _bmpBytes, 22, 4);
+        Array.Copy(BitConverter.GetBytes(1), 0, _bmpBytes, 26, 2);
+        Array.Copy(BitConverter.GetBytes(32), 0, _bmpBytes, 28, 2);
+        Array.Copy(BitConverter.GetBytes(0), 0, _bmpBytes, 30, 4);
+        Array.Copy(BitConverter.GetBytes(_bmpBufferSize), 0, _bmpBytes, 34, 4);
+
+        // Print resolution of the image, 72 DPI x 39.3701 = 2835 inches per meter
+        Array.Copy(BitConverter.GetBytes(2835), 0, _bmpBytes, 38, 4);
+        Array.Copy(BitConverter.GetBytes(2835), 0, _bmpBytes, 42, 4);
+        Array.Copy(BitConverter.GetBytes(0), 0, _bmpBytes, 46, 4);
+        Array.Copy(BitConverter.GetBytes(0), 0, _bmpBytes, 50, 4);
+
+        var k = 54;
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                var bytes = cmap[spectrogram[x][y]];
+
+                _bmpBytes[k++] = bytes[2];
+                _bmpBytes[k++] = bytes[1];
+                _bmpBytes[k++] = bytes[0];
+                _bmpBytes[k++] = 0;
+            }
+        }
+
+        _image64 = "data:image/bmp;base64," + Convert.ToBase64String(_bmpBytes);
+
+        StateHasChanged();
+    }
+}

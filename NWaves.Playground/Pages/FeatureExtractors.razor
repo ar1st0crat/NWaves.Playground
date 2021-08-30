@@ -1,0 +1,142 @@
+﻿@page "/extractors"
+@inject IJSRuntime jsRuntime
+
+<h3>FeatureExtractors</h3>
+
+<MatFileUpload Label="Drop a single WAV file here or Browse" OnChange="@FileReady" style="padding: 18px; width: 360px; margin: 20px;"></MatFileUpload>
+
+<div style="width: 100%;">@info</div>
+
+<SignalPlot @ref="signalPlot" />
+<SpectrogramPlot @ref="spectrogramPlot" />
+
+@if (signal != null)
+{
+<MatTabGroup>
+    <MatTab Label="MFCC">
+        <ChildContent>
+            <div style="margin-top: 25px;">
+                <MatStringField Label="Feature count" Outlined="true"></MatStringField>
+                <MatStringField Label="Pre-emphasis" Outlined="true"></MatStringField>
+                <MatButton Dense="true" Icon="check_circle"  OnClick="@ComputeMfcc">Compute</MatButton>
+                @if (vectors != null)
+                {
+                    <MatTable Items="@vectors" PageSize="10" class="mat-elevation-z5">
+                        <MatTableHeader>
+                            @foreach (var coeffName in extractor.FeatureDescriptions)
+                            {
+                            <th style="font-size:0.8em; padding:2px;">@coeffName</th>
+                            }
+                        </MatTableHeader>
+                        <MatTableRow>
+                            @foreach (var coeff in context)
+                                {
+                            <td style="font-size:0.8em; padding:2px; height:10px;">@coeff.ToString("F4")</td>
+                                }
+                        </MatTableRow>
+                    </MatTable>
+                }
+            </div>
+        </ChildContent>
+    </MatTab>
+    <MatTab Label="LPC">
+        <ChildContent>
+            <div style="margin-top: 25px;">
+                <MatStringField Label="LPC order" Outlined="true"></MatStringField>
+                <MatStringField Label="Pre-emphasis" Outlined="true"></MatStringField>
+            </div>
+        </ChildContent>
+    </MatTab>
+    <MatTab Label="Chroma">
+        <ChildContent>
+            <div style="margin-top: 25px;">
+                <MatStringField Label="LPC order" Outlined="true"></MatStringField>
+                <MatStringField Label="Pre-emphasis" Outlined="true"></MatStringField>
+            </div>
+        </ChildContent>
+    </MatTab>
+</MatTabGroup>
+}
+
+@code {
+    string info;
+
+    DiscreteSignal signal;
+    FeatureExtractor extractor;
+    List<float[]> vectors;
+
+    SignalPlot signalPlot;
+    SpectrogramPlot spectrogramPlot;
+
+    async Task FileReady(IMatFileUploadEntry[] files)
+    {
+        try
+        {
+            var file = files.FirstOrDefault();
+            if (file is null)
+            {
+                return;
+            }
+
+            using var stream = new MemoryStream();
+
+            await file.WriteToStreamAsync(stream);
+
+            stream.Seek(0, SeekOrigin.Begin);
+
+            var waveFile = new WaveFile(stream);
+            signal = waveFile[Channels.Left];
+
+            await signalPlot.UpdateAsync(signal);
+
+
+            var spectrogram = new Stft(512, 128).Spectrogram(signal);
+            spectrogramPlot.Update(spectrogram);
+        }
+        catch (Exception e)
+        {
+            info = $"Error:\r\n{e.Message}\r\n{e.StackTrace}";
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    void ComputeMfcc()
+    {
+        try
+        {
+            var mfccOptions = new MfccOptions
+            {
+                SamplingRate = signal.SamplingRate,
+                FeatureCount = 13,
+                FrameDuration = 0.032,
+                HopDuration = 0.016,
+                //FilterBank = filterbank,
+                //SpectrumType = spectrumType,
+                //NonLinearity = nonLinearity,
+                //DctType = comboBoxDct.Text,
+                //Window = WindowType.Hamming,
+                LogFloor = 1e-10f,
+                FilterBankSize = 26,
+                //HighFrequency = 6000,
+                //PreEmphasis = 0.97,
+                //LifterSize = 22,
+                //IncludeEnergy = true,
+                //LogEnergyFloor = 1e-10
+            };
+
+            extractor = new MfccExtractor(mfccOptions);
+            vectors = extractor.ComputeFrom(signal);
+        }
+        catch (Exception e)
+        {
+            info = $"Error:\r\n{e.Message}\r\n{e.StackTrace}";
+        }
+        finally
+        {
+            StateHasChanged();
+        }
+    }
+}

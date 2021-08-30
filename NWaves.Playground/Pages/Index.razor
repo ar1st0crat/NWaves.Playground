@@ -1,0 +1,123 @@
+﻿@page "/"
+@inject IJSRuntime jsRuntime
+
+<h3>Welcome to NWaves playground</h3>
+
+<MatFileUpload Label="Drop a single WAV file here or Browse" OnChange="@FileReady" style="padding: 18px; width: 360px; margin: 20px;"></MatFileUpload>
+
+<div id="audios">
+
+</div>
+
+<SignalPlot @ref="_signalPlot"></SignalPlot>
+
+@if (!string.IsNullOrEmpty(_errorText))
+{
+    <div>errorText</div>
+}
+
+@if (_signal != null)
+{
+    <MatList TwoLine="true">
+        <MatListItem>
+            <MatListItemText>
+                <MatListItemPrimaryText>@_signal.SamplingRate Hz</MatListItemPrimaryText>
+                <MatListItemSecondaryText>Sampling rate</MatListItemSecondaryText>
+            </MatListItemText>
+        </MatListItem>
+        <MatListDivider></MatListDivider>
+        <MatListItem>
+            <MatListItemText>
+                <MatListItemPrimaryText>@_signal.Duration seconds</MatListItemPrimaryText>
+                <MatListItemSecondaryText>Duration</MatListItemSecondaryText>
+            </MatListItemText>
+        </MatListItem>
+        <MatListDivider></MatListDivider>
+        <MatListItem>
+            <MatListItemText>
+                <MatListItemPrimaryText>@_signal.Length samples </MatListItemPrimaryText>
+                <MatListItemSecondaryText>Length</MatListItemSecondaryText>
+            </MatListItemText>
+        </MatListItem>
+        <MatListDivider></MatListDivider>
+        <MatListItem>
+            <MatListItemText>
+                <MatListItemPrimaryText>@_signal.Rms()</MatListItemPrimaryText>
+                <MatListItemSecondaryText>RMS</MatListItemSecondaryText>
+            </MatListItemText>
+        </MatListItem>
+        <MatListDivider></MatListDivider>
+        <MatListItem>
+            <MatListItemText>
+                <MatListItemPrimaryText>@_signal.Energy()</MatListItemPrimaryText>
+                <MatListItemSecondaryText>Energy</MatListItemSecondaryText>
+            </MatListItemText>
+        </MatListItem>
+        <MatListDivider></MatListDivider>
+        <MatListItem>
+            <MatListItemText>
+                <MatListItemPrimaryText>@_signal.ZeroCrossingRate()</MatListItemPrimaryText>
+                <MatListItemSecondaryText>ZCR</MatListItemSecondaryText>
+            </MatListItemText>
+        </MatListItem>
+        <MatListDivider></MatListDivider>
+        <MatListItem>
+            <MatListItemText>
+                <MatListItemPrimaryText>@_signal.Entropy()</MatListItemPrimaryText>
+                <MatListItemSecondaryText>Entropy</MatListItemSecondaryText>
+            </MatListItemText>
+        </MatListItem>
+    </MatList>
+}
+
+
+@code
+{
+    DiscreteSignal _signal;
+    SignalPlot _signalPlot;
+
+    string _errorText;
+
+    async Task FileReady(IMatFileUploadEntry[] files)
+    {
+        try
+        {
+            var file = files.FirstOrDefault();
+
+            if (file is null)
+            {
+                return;
+            }
+
+            using var stream = new MemoryStream();
+
+            await file.WriteToStreamAsync(stream);
+
+            await jsRuntime.InvokeAsync<byte[]>("loadAudio", stream.ToArray(), "audios");
+
+            stream.Seek(0, SeekOrigin.Begin);
+
+            var waveFile = new WaveFile(stream);
+            _signal = waveFile[Channels.Left];
+
+            await _signalPlot.UpdateAsync(_signal);
+
+            //var stretched = Operation.TimeStretch(signal, 2.0);
+
+            //using var outStream = new MemoryStream();
+
+            //var outWaveFile = new WaveFile(stretched);
+            //outWaveFile.SaveTo(outStream);
+
+            //await jsRuntime.InvokeAsync<byte[]>("loadAudio", outStream.ToArray(), "audios");
+        }
+        catch (Exception e)
+        {
+            _errorText = $"Error:\r\n{e.Message}\r\n{e.StackTrace}";
+        }
+        finally
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+}
