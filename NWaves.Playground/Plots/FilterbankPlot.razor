@@ -1,0 +1,63 @@
+﻿<BECanvas Width="1045" Height="120" @ref="_canvasReference"></BECanvas>
+
+@code {
+    //[CascadingParameter]
+    //float[][] Filterbank { get; set; }
+
+    Canvas2DContext _context;
+    BECanvasComponent _canvasReference;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _context = await _canvasReference.CreateCanvas2DAsync();
+            await _context.SetStrokeStyleAsync("purple");
+            await _context.SetFillStyleAsync("white");
+        }
+    }
+
+    public async Task UpdateAsync(float[][] filterbank)
+    {
+        const int PaddingTop = 25;
+        const int PaddingBottom = 5;
+        const int PaddingLeft = 20;
+
+        await _context.FillRectAsync(0, 0, _canvasReference.Width, _canvasReference.Height);
+
+        if (filterbank is null) return;
+
+        var offset = _canvasReference.Height - PaddingBottom;
+
+        var stride = 2;
+        var gain = (offset - PaddingTop) / filterbank.Max(f => f.Max());
+
+        await _context.StrokeTextAsync("0", 0, offset);
+        await _context.StrokeTextAsync(((offset - PaddingTop) / gain).ToString(), 0, PaddingTop);
+        await _context.BeginPathAsync();
+
+        for (var j = 0; j < filterbank.GetLength(0); j++)
+        {
+            var i = 1;
+            var x = stride;
+
+            while (i < filterbank[j].Length)
+            {
+                if (filterbank[j][i - 1] > 0 || filterbank[j][i] > 0)
+                {
+                    await _context.MoveToAsync(PaddingLeft + x - stride, - filterbank[j][i - 1] * gain + offset);
+                    await _context.LineToAsync(PaddingLeft + x, - filterbank[j][i] * gain + offset);
+                }
+
+                x += stride;
+                i++;
+            }
+        }
+
+        await _context.MoveToAsync(PaddingLeft, offset);
+        await _context.LineToAsync(PaddingLeft + filterbank[0].Length * stride, offset);
+
+        await _context.ClosePathAsync();
+        await _context.StrokeAsync();
+    }
+}

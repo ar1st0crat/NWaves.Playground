@@ -13,63 +13,64 @@
 
 @if (!string.IsNullOrEmpty(_errorText))
 {
-    <div>errorText</div>
+    <div>@_errorText</div>
 }
 
-@if (_signal != null)
+@if (_signal is null)
 {
-    <MatList TwoLine="true">
-        <MatListItem>
-            <MatListItemText>
-                <MatListItemPrimaryText>@_signal.SamplingRate Hz</MatListItemPrimaryText>
-                <MatListItemSecondaryText>Sampling rate</MatListItemSecondaryText>
-            </MatListItemText>
-        </MatListItem>
-        <MatListDivider></MatListDivider>
-        <MatListItem>
-            <MatListItemText>
-                <MatListItemPrimaryText>@_signal.Duration seconds</MatListItemPrimaryText>
-                <MatListItemSecondaryText>Duration</MatListItemSecondaryText>
-            </MatListItemText>
-        </MatListItem>
-        <MatListDivider></MatListDivider>
-        <MatListItem>
-            <MatListItemText>
-                <MatListItemPrimaryText>@_signal.Length samples </MatListItemPrimaryText>
-                <MatListItemSecondaryText>Length</MatListItemSecondaryText>
-            </MatListItemText>
-        </MatListItem>
-        <MatListDivider></MatListDivider>
-        <MatListItem>
-            <MatListItemText>
-                <MatListItemPrimaryText>@_signal.Rms()</MatListItemPrimaryText>
-                <MatListItemSecondaryText>RMS</MatListItemSecondaryText>
-            </MatListItemText>
-        </MatListItem>
-        <MatListDivider></MatListDivider>
-        <MatListItem>
-            <MatListItemText>
-                <MatListItemPrimaryText>@_signal.Energy()</MatListItemPrimaryText>
-                <MatListItemSecondaryText>Energy</MatListItemSecondaryText>
-            </MatListItemText>
-        </MatListItem>
-        <MatListDivider></MatListDivider>
-        <MatListItem>
-            <MatListItemText>
-                <MatListItemPrimaryText>@_signal.ZeroCrossingRate()</MatListItemPrimaryText>
-                <MatListItemSecondaryText>ZCR</MatListItemSecondaryText>
-            </MatListItemText>
-        </MatListItem>
-        <MatListDivider></MatListDivider>
-        <MatListItem>
-            <MatListItemText>
-                <MatListItemPrimaryText>@_signal.Entropy()</MatListItemPrimaryText>
-                <MatListItemSecondaryText>Entropy</MatListItemSecondaryText>
-            </MatListItemText>
-        </MatListItem>
-    </MatList>
+    return;
 }
 
+<MatList TwoLine="true">
+    <MatListItem>
+        <MatListItemText>
+            <MatListItemPrimaryText>@_signal.SamplingRate Hz</MatListItemPrimaryText>
+            <MatListItemSecondaryText>Sampling rate</MatListItemSecondaryText>
+        </MatListItemText>
+    </MatListItem>
+    <MatListDivider></MatListDivider>
+    <MatListItem>
+        <MatListItemText>
+            <MatListItemPrimaryText>@_signal.Duration seconds</MatListItemPrimaryText>
+            <MatListItemSecondaryText>Duration</MatListItemSecondaryText>
+        </MatListItemText>
+    </MatListItem>
+    <MatListDivider></MatListDivider>
+    <MatListItem>
+        <MatListItemText>
+            <MatListItemPrimaryText>@_signal.Length samples </MatListItemPrimaryText>
+            <MatListItemSecondaryText>Length</MatListItemSecondaryText>
+        </MatListItemText>
+    </MatListItem>
+    <MatListDivider></MatListDivider>
+    <MatListItem>
+        <MatListItemText>
+            <MatListItemPrimaryText>@_signal.Rms()</MatListItemPrimaryText>
+            <MatListItemSecondaryText>RMS</MatListItemSecondaryText>
+        </MatListItemText>
+    </MatListItem>
+    <MatListDivider></MatListDivider>
+    <MatListItem>
+        <MatListItemText>
+            <MatListItemPrimaryText>@_signal.Energy()</MatListItemPrimaryText>
+            <MatListItemSecondaryText>Energy</MatListItemSecondaryText>
+        </MatListItemText>
+    </MatListItem>
+    <MatListDivider></MatListDivider>
+    <MatListItem>
+        <MatListItemText>
+            <MatListItemPrimaryText>@_signal.ZeroCrossingRate()</MatListItemPrimaryText>
+            <MatListItemSecondaryText>ZCR</MatListItemSecondaryText>
+        </MatListItemText>
+    </MatListItem>
+    <MatListDivider></MatListDivider>
+    <MatListItem>
+        <MatListItemText>
+            <MatListItemPrimaryText>@_signal.Entropy()</MatListItemPrimaryText>
+            <MatListItemSecondaryText>Entropy</MatListItemSecondaryText>
+        </MatListItemText>
+    </MatListItem>
+</MatList>
 
 @code
 {
@@ -101,15 +102,6 @@
             _signal = waveFile[Channels.Left];
 
             await _signalPlot.UpdateAsync(_signal);
-
-            //var stretched = Operation.TimeStretch(signal, 2.0);
-
-            //using var outStream = new MemoryStream();
-
-            //var outWaveFile = new WaveFile(stretched);
-            //outWaveFile.SaveTo(outStream);
-
-            //await jsRuntime.InvokeAsync<byte[]>("loadAudio", outStream.ToArray(), "audios");
         }
         catch (Exception e)
         {
