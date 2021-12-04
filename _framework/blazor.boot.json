@@ -3,7 +3,7 @@
   "config": [ ],
   "debugBuild": false,
   "entryAssembly": "NWaves.Playground",
-  "icuDataMode": 0,
+  "icuDataMode": 2,
   "linkerEnabled": true,
   "resources": {
     "assembly": {
@@ -28,7 +28,7 @@
       "Microsoft.JSInterop.WebAssembly.dll": "sha256-E1ZVZc8ppcbuan9B4K4NDw+BijA0pjKkIIwlnGerx9g=",
       "NWaves.dll": "sha256-MwmmmGybiIFCp\/Db8AE0YHKPUi8pWmWHz55\/WPh4\/v4=",
       "System.IO.Pipelines.dll": "sha256-CETD5tkXtiKEgbXyN\/lp0Ejf6LcHIhgeQIEyow2mhmY=",
-      "NWaves.Playground.dll": "sha256-mvGApqDDUbc4+KesXQzF1kzS7WvSoqRMuoQCXYn0mIQ=",
+      "NWaves.Playground.dll": "sha256-s22gzB1gwUfLPmn5jJqY9RZsgialDCI2XXCb1mupykA=",
       "System.Collections.Concurrent.dll": "sha256-if8bU4aPB1ppsnxqPAK+TNHUG3VqlQ0QBzSjyPl+GHc=",
       "System.Collections.Immutable.dll": "sha256-eqt2UDe5Tx6WyIu4PY5GqoHvL0bmoebDQr6FaFg5wNQ=",
       "System.Collections.NonGeneric.dll": "sha256-VtuJySAxpEn6tFufofrneMyZmGALIuoapGYfKhKs\/UI=",
@@ -60,17 +60,13 @@
       "System.Text.Json.dll": "sha256-ZaQHVgV70C6BPIuChkGR18qaNWix9ToIydHasvQcLzU=",
       "System.Text.RegularExpressions.dll": "sha256-qF3AX7HQLM05MOZmtFHH2OygHYX+ng1vnH3LBw0FUjs=",
       "System.Threading.Tasks.Parallel.dll": "sha256-2q03xvMsIFPsAaazf7RgoEMwmEK0u0VQojourccSRVk=",
-      "System.Private.CoreLib.dll": "sha256-hkP1+UtmCIQJW33Fgp0CDmzlachnjzwDjLT\/4OFvdEk="
+      "System.Private.CoreLib.dll": "sha256-XYq\/Re2R2xZbOT8VWGgUsPkzdYrmUlsOkEyRUmp8jIo="
     },
     "lazyAssembly": null,
     "pdb": null,
     "runtime": {
       "dotnet.timezones.blat": "sha256-ir9YCVnnk7popgsYUkvitfGA4WpkP1ydPh\/ENHnxGys=",
       "dotnet.wasm": "sha256-YXYNlLeMqRPFVpY2KSDhleLkNk35d9KvzzwwKAoiftc=",
-      "icudt.dat": "sha256-m7NyeXyxM+CL04jr9ui1Z6pVfMWwhHusuz5qNZWpAwA=",
-      "icudt_CJK.dat": "sha256-91bygK5voY9lG5wxP0\/uj7uH5xljF9u7iWnSldT1Z\/g=",
-      "icudt_EFIGS.dat": "sha256-DPfeOLph83b2rdx40cKxIBcfVZ8abTWAFq+RBQMxGw0=",
-      "icudt_no_CJK.dat": "sha256-oM7Z6aN9jHmCYqDMCBwFgFAYAGgsH1jLC\/Z6DYeVmmk=",
       "dotnet.5.0.12.js": "sha256-WS05RNygETTzJa6IrHiyyVLJPZpiosV319Lgm41Sv48="
     },
     "satelliteResources": null
