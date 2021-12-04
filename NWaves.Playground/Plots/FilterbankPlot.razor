@@ -1,8 +1,12 @@
 ﻿<BECanvas Width="1045" Height="120" @ref="_canvasReference"></BECanvas>
 
 @code {
-    //[CascadingParameter]
-    //float[][] Filterbank { get; set; }
+    [Parameter]
+    public EventCallback OnReady { get; set; }
+
+    const int PaddingTop = 25;
+    const int PaddingBottom = 5;
+    const int PaddingLeft = 20;
 
     Canvas2DContext _context;
     BECanvasComponent _canvasReference;
@@ -14,15 +18,13 @@
             _context = await _canvasReference.CreateCanvas2DAsync();
             await _context.SetStrokeStyleAsync("purple");
             await _context.SetFillStyleAsync("white");
+
+            await OnReady.InvokeAsync();
         }
     }
 
     public async Task UpdateAsync(float[][] filterbank)
     {
-        const int PaddingTop = 25;
-        const int PaddingBottom = 5;
-        const int PaddingLeft = 20;
-
         await _context.FillRectAsync(0, 0, _canvasReference.Width, _canvasReference.Height);
 
         if (filterbank is null) return;

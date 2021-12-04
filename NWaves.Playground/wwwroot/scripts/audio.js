@@ -16,5 +16,7 @@ function loadAudio(data, containerId) {
     let audio = document.createElement('audio');
     audio.controls = true;
     audio.src = url;
-    document.getElementById(containerId).appendChild(audio);
+    let audioContainer = document.getElementById(containerId);
+    audioContainer.textContent = '';
+    audioContainer.appendChild(audio);
 }

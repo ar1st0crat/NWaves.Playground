@@ -1,6 +1,8 @@
 ﻿@page "/extractors"
 @inject IJSRuntime jsRuntime
 
+@using NWaves.Playground.Util; 
+
 <h3>FeatureExtractors</h3>
 
 <MatFileUpload Label="Drop a single WAV file here or Browse" OnChange="@FileReady" style="padding: 18px; width: 360px; margin: 20px;"></MatFileUpload>
@@ -38,19 +40,19 @@
                             </p>
                             @if (_inSeconds)
                             {
-                            <p>
-                                <MatTextField Label="Frame duration" Outlined="true" @bind-Value="@_options.FrameDuration"></MatTextField>
-                                <MatTextField Label="Hop duration" Outlined="true" @bind-Value="@_options.HopDuration"></MatTextField>
-                                <MatCheckbox @bind-Value="@_inSeconds" Label="In seconds"></MatCheckbox>
-                            </p>
+                                <p>
+                                    <MatTextField Label="Frame duration" Outlined="true" @bind-Value="@_options.FrameDuration"></MatTextField>
+                                    <MatTextField Label="Hop duration" Outlined="true" @bind-Value="@_options.HopDuration"></MatTextField>
+                                    <MatCheckbox @bind-Value="@_inSeconds" Label="In seconds"></MatCheckbox>
+                                </p>
                             }
                             else
                             {
-                            <p>
-                                <MatTextField Label="Frame size" Outlined="true" @bind-Value="@_options.FrameSize"></MatTextField>
-                                <MatTextField Label="Hop size" Outlined="true" @bind-Value="@_options.HopSize"></MatTextField>
-                                <MatCheckbox @bind-Value="@_inSeconds" Label="In seconds"></MatCheckbox>
-                            </p>
+                                <p>
+                                    <MatTextField Label="Frame size" Outlined="true" @bind-Value="@_options.FrameSize"></MatTextField>
+                                    <MatTextField Label="Hop size" Outlined="true" @bind-Value="@_options.HopSize"></MatTextField>
+                                    <MatCheckbox @bind-Value="@_inSeconds" Label="In seconds"></MatCheckbox>
+                                </p>
                             }
                             <p>
                                 <MatSelectItem Label="Window type" @bind-Value="@_options.Window" Items="@_windowTypes"></MatSelectItem>
@@ -64,6 +66,12 @@
                             <p>
                                 <MatCheckbox @bind-Value="@_options.IncludeEnergy" Label="Include energy"></MatCheckbox>
                             </p>
+                            @if (_mfccMode == "kaldi")
+                            {
+                            <p>
+                                <MatCheckbox @bind-Value="@_removeDcOffset" Label="Remove DC offset"></MatCheckbox>
+                            </p>
+                            }
                         </MatExpansionPanelDetails>
                     </MatExpansionPanel>
                     <MatExpansionPanel>
@@ -79,14 +87,15 @@
                             <MatExpansionPanelHeader>2) Mel filters</MatExpansionPanelHeader>
                         </MatExpansionPanelSummary>
                         <MatExpansionPanelDetails>
-                            <MatTextField Label="Mel count" Outlined="true" @bind-Value="@MelCount"></MatTextField>
+                            <MatTextField Label="Mel count" Outlined="true" @bind-Value="@_melCount"></MatTextField>
                             <MatTextField Label="Low frequency" Outlined="true" @bind-Value="@_options.LowFrequency"></MatTextField>
                             <MatTextField Label="High frequency" Outlined="true" @bind-Value="@_options.HighFrequency"></MatTextField>
                             <MatTextField Label="FFT size" Outlined="true" @bind-Value="@_options.FftSize"></MatTextField>
                             <MatTextField Label="Log floor" Outlined="true" @bind-Value="@_options.LogFloor"></MatTextField>
-                            <CascadingValue Value="@_options.FilterBank">
-                                <FilterbankPlot @ref="_filterbankPlot" />
-                            </CascadingValue>
+                            <p>
+                                <MatButton Dense="true" Icon="check_circle" OnClick="@UpdateFilterbank">Compute</MatButton>
+                            </p>
+                            <FilterbankPlot @ref="_filterbankPlot" OnReady="@UpdateFilterbank" />
                         </MatExpansionPanelDetails>
                     </MatExpansionPanel>
                     <MatExpansionPanel>
@@ -141,8 +150,8 @@
             <MatDialog @bind-IsOpen="@_dialogIsOpen">
                 <MatDialogTitle>Code</MatDialogTitle>
                 <MatDialogContent>
-                    <textarea rows="23" cols="40">
-                        @_pythonCode
+                    <textarea rows="22" cols="52">
+                        @_sourceCode
                     </textarea>
                 </MatDialogContent>
                 <MatDialogActions>
@@ -153,6 +162,8 @@
 
         </ChildContent>
     </MatTab>
+
+
     <MatTab Label="MelSpectrogram">
         <ChildContent>
             <div style="margin-top: 25px;">
@@ -200,7 +211,7 @@
                             <MatExpansionPanelHeader>2) Mel filters</MatExpansionPanelHeader>
                         </MatExpansionPanelSummary>
                         <MatExpansionPanelDetails>
-                            <MatTextField Label="Mel count" Outlined="true" @bind-Value="@MelCount"></MatTextField>
+                            <MatTextField Label="Mel count" Outlined="true" @bind-Value="@_melCount"></MatTextField>
                             <MatTextField Label="Low frequency" Outlined="true" @bind-Value="@_options.LowFrequency"></MatTextField>
                             <MatTextField Label="High frequency" Outlined="true" @bind-Value="@_options.HighFrequency"></MatTextField>
                             <MatTextField Label="FFT size" Outlined="true" @bind-Value="@_options.FftSize"></MatTextField>
@@ -270,17 +281,21 @@
 
     DiscreteSignal _signal;
 
-    FeatureExtractor _extractor;
+    MfccExtractor _extractor;
     MfccOptions _options = new MfccOptions();
     List<float[]> _vectors;
 
-    string _pythonCode;
+    int _melCount;
+    float[][] _filterbank;
+
+    string _sourceCode;
     string _clipboardMessage = "Copy to clipboard";
     bool _dialogIsOpen = false;
 
-    bool _inSeconds = true;
+    bool _inSeconds;
+    bool _removeDcOffset;
 
-    string _mfccMode = "custom";
+    string _mfccMode;
     string MfccMode
     {
         get => _mfccMode;
@@ -306,40 +321,7 @@
                     break;
             }
 
-            _filterbankPlot.UpdateAsync(_options.FilterBank);
-        }
-    }
-
-    int MelCount
-    {
-        get
-        {
-            if (_options.FilterBank is null)
-            {
-                return _options.FilterBankSize;
-            }
-            else
-            {
-                return _options.FilterBank.GetLength(0);
-            }
-        }
-        set
-        {
-            if (_options.FilterBank is null)
-            {
-                _options.FilterBankSize = value;
-            }
-            else
-            {
-                if (_mfccMode == "librosa")
-                {
-                    _options.FilterBank = FilterBanks.MelBankSlaney(value, _options.FftSize, _signal.SamplingRate, _options.LowFrequency, _options.HighFrequency);
-                }
-                else if (_mfccMode == "psf")
-                {
-                    _options.FilterBank = PsfFilterbank(_signal.SamplingRate, value, _options.FftSize, _options.LowFrequency, _options.HighFrequency);
-                }
-            }
+            UpdateFilterbank();
         }
     }
 
@@ -396,6 +378,8 @@
 
             var spectrogram = new Stft(512, 128).Spectrogram(_signal);
             _spectrogramPlot.Update(spectrogram);
+
+            MfccMode = "custom";
         }
         catch (Exception e)
         {
@@ -411,8 +395,20 @@
     {
         try
         {
-            _extractor = new MfccExtractor(_options);
+            UpdateFilterbank();
+
+            if (_mfccMode == "kaldi" && _removeDcOffset)
+            {
+                var options = _options.Cast<MfccOptions, MfccOptions>(); // simply copy options
+                options.Window = WindowType.Rectangular;
+                _extractor = new MfccExtractorKaldi(options, _options.Window);
+            }
+            else
+            {
+                _extractor = new MfccExtractor(_options);
+            }
             _vectors = _extractor.ComputeFrom(_signal);
+
 
             // correction of the 1st coefficient for compliance with python_speech_features
 
@@ -429,7 +425,7 @@
                 {
                     for (var i = 0; i < _vectors.Count; i++)
                     {
-                        _vectors[i][0] -= (float)(Math.Log(2) * Math.Sqrt(MelCount));
+                        _vectors[i][0] -= (float)(Math.Log(2) * Math.Sqrt(_melCount));
                     }
                 }
             }
@@ -446,18 +442,26 @@
 
     void SetMfccDefaults()
     {
+        _inSeconds = true;
+        _melCount = 24;
+
         _options = new MfccOptions
         {
             SamplingRate = _signal.SamplingRate,
             FeatureCount = 13,
+            FrameDuration = 0.025,
+            HopDuration = 0.01,
+            FilterBankSize = _melCount,
             Window = WindowType.Hann
         };
     }
 
     void SetLibrosaDefaults()
     {
+        _inSeconds = false;
+        _melCount = 40;
+
         var fftSize = 1024;
-        var melCount = 40;
 
         _options = new MfccOptions
         {
@@ -465,7 +469,7 @@
             FeatureCount = 13,
             FrameSize = fftSize,
             HopSize = 512,
-            FilterBank = FilterBanks.MelBankSlaney(melCount, fftSize, _signal.SamplingRate, _options.LowFrequency, _options.HighFrequency),
+            FilterBank = FilterBanks.MelBankSlaney(_melCount, fftSize, _signal.SamplingRate, _options.LowFrequency, _options.HighFrequency),
             SpectrumType = SpectrumType.Power,
             NonLinearity = NonLinearityType.ToDecibel,
             DctType = "2N",
@@ -477,13 +481,17 @@
 
     void SetKaldiDefaults()
     {
+        _inSeconds = true;
+        _removeDcOffset = false;
+        _melCount = 23;
+
         _options = new MfccOptions
         {
             SamplingRate = _signal.SamplingRate,
             FeatureCount = 13,
             FrameDuration = 0.025,
             HopDuration = 0.01,
-            FilterBankSize = 23,
+            FilterBankSize = _melCount,
             LowFrequency = 20,
             NonLinearity = NonLinearityType.LogE,
             DctType = "2N",
@@ -495,8 +503,10 @@
 
     void SetPytorchDefaults()
     {
+        _inSeconds = false;
+        _melCount = 24;
+
         var fftSize = 1024;
-        var melCount = 24;
 
         _options = new MfccOptions
         {
@@ -504,7 +514,7 @@
             FeatureCount = 13,
             FrameSize = fftSize,
             HopSize = 512,
-            FilterBankSize = melCount,
+            FilterBankSize = _melCount,
             SpectrumType = SpectrumType.Power,
             NonLinearity = NonLinearityType.ToDecibel,
             DctType = "2N",
@@ -516,8 +526,10 @@
 
     void SetPythonSpeechFeaturesDefaults()
     {
+        _inSeconds = true;
+        _melCount = 26;
+
         var fftSize = 512;
-        var melCount = 26;
 
         _options = new MfccOptions
         {
@@ -525,8 +537,7 @@
             FeatureCount = 16,
             FrameDuration = 0.025,
             HopDuration = 0.01,
-            //FilterBankSize = melCount,
-            FilterBank = PsfFilterbank(_signal.SamplingRate, melCount, fftSize),
+            FilterBank = PythonSpeechFeatures.FilterBank(_signal.SamplingRate, _melCount, fftSize),
             SpectrumType = SpectrumType.PowerNormalized,
             NonLinearity = NonLinearityType.LogE,
             DctType = "2N",
@@ -538,97 +549,195 @@
         };
     }
 
+    const string LibrosaTemplate = "import librosa\n\n" +
+                                   "signal, sr = librosa.load(FILE_PATH, sr=None)\n\n" +
+                                   "m = librosa.feature.mfcc(\n" +
+                                   "    signal,\n" +
+                                   "    {0},\n" +
+                                   "    n_mfcc={1},\n" +
+                                   "    dct_type={2},\n" +
+                                   "    norm={3},\n" +
+                                   "    window={4},\n" +
+                                   "    htk=False,\n" +
+                                   "    n_mels={5},\n" +
+                                   "    fmin={6},\n" +
+                                   "    fmax={7},\n" +
+                                   "    n_fft={8},\n" +
+                                   "    hop_length={9},\n" +
+                                   "    lifter={10},\n" +
+                                   "    power={11},\n" +
+                                   "    center=False)\n\n" +
+                                   "m[:, 0]   # get the first vector\n";
+
+    const string PsfTemplate = "import python_speech_features\n" +
+                               "import scipy.io.wavfile as wav\n" +
+                               "import numpy\n\n" +
+                               "sr, signal = wav.read(FILE_PATH)\n\n" +
+                               "signal = signal / 32768\n\n" +
+                               "m = python_speech_features.base.mfcc(\n" +
+                               "    signal,\n" +
+                               "    samplerate={0},\n" +
+                               "    winlen={1},\n" +
+                               "    winstep={2},\n" +
+                               "    numcep={3},\n" +
+                               "    nfilt={4},\n" +
+                               "    nfft={5},\n" +
+                               "    lowfreq={6},\n" +
+                               "    highfreq={7},\n" +
+                               "    preemph={8},\n" +
+                               "    ceplifter={9},\n" +
+                               "    appendEnergy={10},\n" +
+                               "    winfunc={11})\n\n" +
+                               "m[0]   # get the first vector\n";
+
+    const string KaldiTemplate = "import torchaudio\n" +
+                                 "import torchaudio.compliance.kaldi\n\n" +
+                                 "signal, sample_rate = torchaudio.load(FILE_PATH)\n\n" +
+                                 "m = torchaudio.compliance.kaldi.mfcc(\n" +
+                                 "    signal,\n" +
+                                 "    {0},\n" +
+                                 "    num_ceps={1},\n" +
+                                 "    num_mel_bins={2},\n" +
+                                 "    frame_length={3},\n" +
+                                 "    frame_shift={4},\n" +
+                                 "    low_freq={5},\n" +
+                                 "    high_freq={6},\n" +
+                                 "    window_type={7},\n" +
+                                 "    cepstral_lifter={8},\n" +
+                                 "    preemphasis_coefficient={9},\n" +
+                                 "    use_energy={10},\n" +
+                                 "    remove_dc_offset={11})\n\n" +
+                                 "m[0]   # get the first vector\n";
+
+    const string PytorchTemplate = "import torchaudio\n" +
+                                   "import torchaudio.transforms as T\n\n" +
+                                   "signal, sample_rate = torchaudio.load(FILE_PATH)\n\n" +
+                                   "mfcc_transform = T.MFCC(\n" +
+                                   "    sample_rate={0},\n" +
+                                   "    n_mfcc={1},\n" +
+                                   "    melkwargs={{\n" +
+                                   "       'n_mels': {2},\n" +
+                                   "       'n_fft': {3},\n" +
+                                   "       'hop_length': {4},\n" +
+                                   "       'f_min': {5},\n" +
+                                   "       'f_max': {6},\n" +
+                                   "       'power': {7}\n" +
+                                   "       }}\n" +
+                                   "    )\n\n" +
+                                   "m = mfcc_transform(signal)\n\n" +
+                                   "#librosa: \n" +
+                                   "melspec = librosa.feature.melspectrogram(\n" +
+                                   "    y=signal.numpy()[0], sr={0}, n_fft={3},\n" +
+                                   "    win_length={3}, hop_length={4},\n" +
+                                   "    n_mels={2}, fmin={5}, fmax={6},\n" +
+                                   "    power={7}, htk=True, norm=None)\n\n" +
+                                   "mfcc_librosa = librosa.feature.mfcc(\n" +
+                                   "    S = librosa.core.spectrum.power_to_db(melspec),\n" +
+                                   "    n_mfcc={1}, dct_type=2, norm='ortho')\n\n" +
+                                   "m[0][:, 0]   # get the first vector (center=True!)\n";
+
+    string LibrosaWindowString(WindowType window)
+    {
+        switch (window)
+        {
+            case WindowType.Hamming: return "hamming";
+            case WindowType.Blackman: return "blackman";
+            default: return "hann";
+        }
+    }
+
+    string KaldiWindowString(WindowType window)
+    {
+        switch (window)
+        {
+            case WindowType.Hamming: return "hamming";
+            case WindowType.Blackman: return "blackman";
+            case WindowType.Rectangular: return "rectangular";
+            default: return "hanning";
+        }
+    }
+
+    string NumpyWindowString(WindowType window)
+    {
+        switch (window)
+        {
+            case WindowType.Hamming: return "numpy.hamming";
+            case WindowType.Blackman: return "numpy.blackman";
+            default: return "numpy.hanning";
+        }
+    }
+
     void ShowPythonCode()
     {
-        var librosaTemplate = "librosa.feature.mfcc(\n" +
-                              "    signal,\n" +
-                              "    {0},\n" +
-                              "    n_mfcc = {1},\n" +
-                              "    dct_type={2},\n" +
-                              "    norm='ortho',\n" +
-                              "    window='hann',\n" +
-                              "    htk=True,\n" +
-                              "    n_mels={3},\n" +
-                              "    n_fft={4},\n" +
-                              "    hop_length={5},\n" +
-                              "    center=False)";
+        switch (_mfccMode)
+        {
+            case "librosa":
+                _sourceCode = string.Format(
+                    LibrosaTemplate,
+                    _signal.SamplingRate,
+                    _options.FeatureCount,
+                    _options.DctType[0],
+                    _options.DctType.EndsWith("N") ? "'ortho'" : "None",
+                    $"'{LibrosaWindowString(_options.Window)}'",
+                    _melCount,
+                    _options.LowFrequency,
+                    _options.HighFrequency > 0 ? _options.HighFrequency : "None",
+                    _options.FftSize,
+                    _options.HopSize,
+                    _options.LifterSize,
+                    _options.SpectrumType == SpectrumType.Magnitude ||
+                    _options.SpectrumType == SpectrumType.MagnitudeNormalized ? 1 : 2);
+                break;
 
-        //var psfTemplate = "mfcc(\n" + 
-        //                  "    signal,\n" + 
-        //    samplerate = 16000,
-        //    winlen = 0.025,
-        //    winstep = 0.01,
-        //    numcep = 16,
-        //    nfilt = 26,
-        //    nfft = 512,
-        //    lowfreq = 0,
-        //    highfreq = None,
-        //    preemph = 0.97,
-        //    ceplifter = 22,
-        //    appendEnergy = False,
-        //    winfunc = numpy.hanning
-        //)
+            case "psf":
+                _sourceCode = string.Format(
+                    PsfTemplate,
+                    _signal.SamplingRate,
+                    _inSeconds ? _options.FrameDuration * 1000 : _options.FrameSize * 1000.0 / _signal.SamplingRate,
+                    _inSeconds ? _options.HopDuration * 1000 : _options.HopSize * 1000.0 / _signal.SamplingRate,
+                    _options.FeatureCount,
+                    _melCount,
+                    _options.FftSize,
+                    _options.LowFrequency,
+                    _options.HighFrequency,
+                    _options.PreEmphasis,
+                    _options.LifterSize,
+                    _options.IncludeEnergy,
+                    $"{NumpyWindowString(_options.Window)}");
+                break;
 
+            case "pytorch":
+                _sourceCode = string.Format(
+                    PytorchTemplate,
+                    _signal.SamplingRate,
+                    _options.FeatureCount,
+                    _melCount,
+                    _options.FftSize,
+                    _options.HopSize,
+                    _options.LowFrequency,
+                    _options.HighFrequency > 0 ? _options.HighFrequency : "None",
+                    _options.SpectrumType == SpectrumType.Magnitude ||
+                    _options.SpectrumType == SpectrumType.MagnitudeNormalized ? 1 : 2);
+                break;
 
-        // KALDI
-
-        //torchaudio.compliance.kaldi.mfcc(
-        //    signal,
-        //    sample_frequency,
-        //    num_ceps = 13,
-        //    num_mel_bins = 23,
-        //    frame_length = 25.0,
-        //    frame_shift = 10.0,
-        //    low_freq = 20.0,
-        //    high_freq = 0.0,
-        //    window_type = 'hanning',
-        //    cepstral_lifter = 22.0,
-        //    preemphasis_coefficient = 0.97,
-        //    remove_dc_offset = False,
-        //    use_energy = False
-        //)
-
-
-        // pytorch
-
-        //n_fft = 1024
-        //win_length = None
-        //hop_length = 512
-        //n_mels = 24
-        //n_mfcc = 13
-
-        //mfcc_transform = T.MFCC(
-        //    sample_rate = sample_rate,
-        //    n_mfcc = n_mfcc,
-        //    melkwargs ={
-        //            'n_fft': n_fft,
-        //      'n_mels': n_mels,
-        //      'hop_length': hop_length
-        //     }
-        //)
-
-        //mfcc = mfcc_transform(signal)
-
-
-        //melspec = librosa.feature.melspectrogram(
-        //  y = waveform.numpy()[0], sr = sample_rate, n_fft = n_fft,
-        //  win_length = win_length, hop_length = hop_length,
-        //  n_mels = n_mels, htk = True, norm = None)
-
-        //mfcc_librosa = librosa.feature.mfcc(
-        //  S = librosa.core.spectrum.power_to_db(melspec),
-        //  n_mfcc = n_mfcc, dct_type = 2, norm = 'ortho')
-
-
-
-        _pythonCode = string.Format(
-            librosaTemplate,
-            _signal.SamplingRate,
-            _options.FeatureCount,
-            _options.DctType[0],
-            MelCount,
-            _options.FftSize,
-            _options.HopSize);
+            case "kaldi":
+            default:
+                _sourceCode = string.Format(
+                    KaldiTemplate,
+                    _signal.SamplingRate,
+                    _options.FeatureCount,
+                    _melCount,
+                    _inSeconds ? _options.FrameDuration * 1000 : _options.FrameSize * 1000.0 / _signal.SamplingRate,
+                    _inSeconds ? _options.HopDuration * 1000 : _options.HopSize * 1000.0 / _signal.SamplingRate,
+                    _options.LowFrequency,
+                    _options.HighFrequency,
+                    $"'{KaldiWindowString(_options.Window)}'",
+                    _options.LifterSize,
+                    _options.PreEmphasis,
+                    _options.IncludeEnergy,
+                    _removeDcOffset);
+                break;
+        }
 
         _clipboardMessage = "Copy to clipboard";
         _dialogIsOpen = true;
@@ -636,7 +745,7 @@
 
     void ShowSharpCode()
     {
-
+        // TODO
     }
 
     void ShowJson()
@@ -650,57 +759,48 @@
 
         using (var json = new StreamReader(configStream))
         {
-            _pythonCode = json.ReadToEnd();
+            _sourceCode = json.ReadToEnd();
         }
 
         _clipboardMessage = "Copy to clipboard";
         _dialogIsOpen = true;
     }
 
-    async Task CopyToClipboard()
+    void UpdateFilterbank()
     {
-        await jsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _pythonCode);
+        if (_options.FftSize <= 0)
+        {
+            _options.FftSize =
+                _options.FrameSize > 0 ?
+                MathUtils.NextPowerOfTwo(_options.FrameSize) :
+                MathUtils.NextPowerOfTwo((int)(_options.FrameDuration * _signal.SamplingRate));
+        }
 
-        _clipboardMessage = "Copied!";
+        if (_mfccMode == "librosa")
+        {
+            _options.FilterBank = FilterBanks.MelBankSlaney(_melCount, _options.FftSize, _signal.SamplingRate, _options.LowFrequency, _options.HighFrequency);
+            _filterbank = _options.FilterBank;
+        }
+        else if (_mfccMode == "psf")
+        {
+            _options.FilterBank = PythonSpeechFeatures.FilterBank(_signal.SamplingRate, _melCount, _options.FftSize, _options.LowFrequency, _options.HighFrequency);
+            _filterbank = _options.FilterBank;
+        }
+        else
+        {
+            _options.FilterBankSize = _melCount;
+
+            var melBands = FilterBanks.MelBands(_melCount, _signal.SamplingRate, _options.LowFrequency, _options.HighFrequency);
+            _filterbank = FilterBanks.Triangular(_options.FftSize, _signal.SamplingRate, melBands, mapper: Scale.HerzToMel);
+        }
+
+        _filterbankPlot?.UpdateAsync(_filterbank);
     }
 
-
-    /// <summary>
-    /// Generates filterbank with weights identical to python_speech_features.
-    /// </summary>
-    float[][] PsfFilterbank(int samplingRate, int filterbankSize, int fftSize, double lowFreq = 0, double highFreq = 0)
+    async Task CopyToClipboard()
     {
-        var filterbank = new float[filterbankSize][];
+        await jsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _sourceCode);
 
-        if (highFreq <= lowFreq)
-        {
-            highFreq = samplingRate / 2;
-        }
-
-        var low = NWaves.Utils.Scale.HerzToMel(lowFreq);
-        var high = NWaves.Utils.Scale.HerzToMel(highFreq);
-
-        var res = (fftSize + 1) / (float)samplingRate;
-
-        var bins = Enumerable
-                      .Range(0, filterbankSize + 2)
-                      .Select(i => (float)Math.Floor(res * NWaves.Utils.Scale.MelToHerz(i * (high - low) / (filterbankSize + 1))))
-                      .ToArray();
-
-        for (var i = 0; i < filterbankSize; i++)
-        {
-            filterbank[i] = new float[fftSize / 2 + 1];
-
-            for (var j = (int)bins[i]; j < (int)bins[i + 1]; j++)
-            {
-                filterbank[i][j] = (j - bins[i]) / (bins[i + 1] - bins[i]);
-            }
-            for (var j = (int)bins[i + 1]; j < (int)bins[i + 2]; j++)
-            {
-                filterbank[i][j] = (bins[i + 2] - j) / (bins[i + 2] - bins[i + 1]);
-            }
-        }
-
-        return filterbank;
+        _clipboardMessage = "Copied!";
     }
 }

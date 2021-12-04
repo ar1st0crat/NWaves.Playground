@@ -5,6 +5,9 @@ using System.Linq;
 
 namespace NWaves.Playground.Util
 {
+    /// <summary>
+    /// Extracts MFCC identically to Kaldi with remove_dc_offset=True.
+    /// </summary>
     public class MfccExtractorKaldi : MfccExtractor
     {
         private readonly new float[] _windowSamples;

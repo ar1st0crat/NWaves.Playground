@@ -1,32 +1,30 @@
-﻿@if (_signal != null)
-{
-    <BECanvas Width="700" Height="120" @ref="_canvasReference"></BECanvas>
-}
+﻿<BECanvas Width="700" Height="120" @ref="_canvasReference"></BECanvas>
 
 @code {
-    DiscreteSignal _signal;
-
     Canvas2DContext _context;
     BECanvasComponent _canvasReference;
 
-    public async Task UpdateAsync(DiscreteSignal signal)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        _signal = signal;
-
-        StateHasChanged();
-
-        if (_context is null)
+        if (firstRender)
         {
             _context = await _canvasReference.CreateCanvas2DAsync();
             await _context.SetStrokeStyleAsync("purple");
             await _context.SetFillStyleAsync("white");
         }
+    }
 
+    public async Task UpdateAsync(DiscreteSignal signal)
+    {
         await _context.FillRectAsync(0, 0, _canvasReference.Width, _canvasReference.Height);
+
+        if (signal is null) return;
 
         var stride = Math.Max(1, (int)(signal.Length / _canvasReference.Width));
 
         var offset = _canvasReference.Height / 2;
+
+        await _context.BeginPathAsync();
 
         var i = 0;
         var x = 0.0;
@@ -49,6 +47,7 @@
             i += stride;
         }
 
+        await _context.ClosePathAsync();
         await _context.StrokeAsync();
     }
 }
