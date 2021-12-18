@@ -31,12 +31,11 @@
     [Parameter]
     public string Code { get; set; }
 
-    string _sourceCode;
     string _clipboardMessage = "Copy to clipboard";
 
     async Task CopyToClipboard()
     {
-        await jsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _sourceCode);
+        await jsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", Code);
         _clipboardMessage = "Copied!";
     }
 

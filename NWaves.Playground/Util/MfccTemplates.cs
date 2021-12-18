@@ -180,6 +180,7 @@ namespace NWaves.Playground.Util
                    "    LifterSize = {10},\n" +
                    "    NonLinearity = NonLinearityType.LogE,\n" +
                    "    PreEmphasis = {11},\n" +
+                   "    IncludeEnergy = {12},\n" +
                    "    SpectrumType = SpectrumType.PowerNormalized\n}};\n\n" +
                    "var extractor = new MfccExtractor(options);\n" +
                    "var mfccs = extractor.ComputeFrom(signal);\n";
@@ -270,13 +271,13 @@ namespace NWaves.Playground.Util
                     PytorchPythonTemplate,
                     options.SamplingRate,
                     options.FeatureCount,
-                    options.FrameSize,
-                    options.HopSize,
                     options.FilterBankSize,
-                    options.DctType,
+                    options.FftSize,
+                    options.HopSize,
                     options.LowFrequency,
-                    options.HighFrequency,
-                    options.SpectrumType),
+                    options.HighFrequency > 0 ? options.HighFrequency : "None",
+                    options.SpectrumType == SpectrumType.Magnitude ||
+                    options.SpectrumType == SpectrumType.MagnitudeNormalized ? 1 : 2),
 
                 _ => string.Format
                 (
@@ -349,7 +350,8 @@ namespace NWaves.Playground.Util
                     options.LowFrequency,
                     options.HighFrequency,
                     options.LifterSize,
-                    options.PreEmphasis)
+                    options.PreEmphasis,
+                    options.IncludeEnergy ? "true" : "false")
                 .PostProcess(inSeconds)
                 .AddPsfCorrection(options.IncludeEnergy),
 
@@ -382,10 +384,10 @@ namespace NWaves.Playground.Util
                         options.HighFrequency,
                         options.FftSize,
                         options.DctType,
-                        options.Window,
+                        WindowType.Rectangular,
                         options.LifterSize,
                         options.PreEmphasis,
-                        options.IncludeEnergy,
+                        options.IncludeEnergy ? "true" : "false",
                         options.SpectrumType)
                     .PostProcess(inSeconds)
                     .Replace("Extractor(options)", $"ExtractorKaldi(options, WindowType.{options.Window})")
@@ -402,10 +404,10 @@ namespace NWaves.Playground.Util
                         options.HighFrequency,
                         options.FftSize,
                         options.DctType,
-                        WindowType.Rectangular,
+                        options.Window,
                         options.LifterSize,
                         options.PreEmphasis,
-                        options.IncludeEnergy,
+                        options.IncludeEnergy ? "true" : "false",
                         options.SpectrumType)
                     .PostProcess(inSeconds)
             };
