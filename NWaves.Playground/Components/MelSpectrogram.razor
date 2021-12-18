@@ -1,14 +1,18 @@
-﻿@inject IJSRuntime jsRuntime
+﻿@inject IMatToaster Toaster
 
-<div style="margin-top: 25px;">
-    <MatAccordion Multi="true" style="margin-top: 25px; margin-bottom: 25px;">
+@using NWaves.Playground.Util;
+
+<MatToastContainer />
+
+<div id="main">
+    <MatAccordion Multi style="margin-top: 25px; margin-bottom: 25px;">
         <MatExpansionPanel>
             <MatExpansionPanelSummary>
                 <MatExpansionPanelHeader>General settings</MatExpansionPanelHeader>
             </MatExpansionPanelSummary>
             <MatExpansionPanelDetails>
-                <MatTextField Label="Frame size" Outlined="true" @bind-Value="@_options.FrameSize"></MatTextField>
-                <MatTextField Label="Hop size" Outlined="true" @bind-Value="@_options.HopSize"></MatTextField>
+                <MatTextField Label="Frame size" Outlined @bind-Value="@_options.FrameSize"></MatTextField>
+                <MatTextField Label="Hop size" Outlined @bind-Value="@_options.HopSize"></MatTextField>
             </MatExpansionPanelDetails>
         </MatExpansionPanel>
         <MatExpansionPanel>
@@ -24,13 +28,13 @@
                 <MatExpansionPanelHeader>2) Mel filters</MatExpansionPanelHeader>
             </MatExpansionPanelSummary>
             <MatExpansionPanelDetails>
-                <MatTextField Label="Mel count" Outlined="true" @bind-Value="@_melCount"></MatTextField>
-                <MatTextField Label="Low frequency" Outlined="true" @bind-Value="@_options.LowFrequency"></MatTextField>
-                <MatTextField Label="High frequency" Outlined="true" @bind-Value="@_options.HighFrequency"></MatTextField>
-                <MatTextField Label="FFT size" Outlined="true" @bind-Value="@_options.FftSize"></MatTextField>
+                <MatTextField Label="Mel count" Outlined @bind-Value="@_melCount"></MatTextField>
+                <MatTextField Label="Low frequency" Outlined @bind-Value="@_options.LowFrequency"></MatTextField>
+                <MatTextField Label="High frequency" Outlined @bind-Value="@_options.HighFrequency"></MatTextField>
+                <MatTextField Label="FFT size" Outlined @bind-Value="@_options.FftSize"></MatTextField>
                 <MatCheckbox @bind-Value="@_slaney" Label="Slaney (default in librosa)"></MatCheckbox>
                 <p>
-                    <MatButton Dense="true" Icon="check_circle" OnClick="@UpdateFilterbank">Compute</MatButton>
+                    <MatButton Dense Icon="check_circle" OnClick="@UpdateFilterbank">Compute</MatButton>
                 </p>
                 <FilterbankPlot @ref="_filterbankPlot" OnReady="@UpdateFilterbank" />
             </MatExpansionPanelDetails>
@@ -45,42 +49,33 @@
         </MatExpansionPanel>
     </MatAccordion>
 
-    <MatButton Dense="true" Icon="check_circle" OnClick="@ComputeMelSpectrogram">Compute</MatButton>
-    <MatButton Dense="true" Icon="check_circle" OnClick="@ShowPythonCode">Show Python code</MatButton>
-    <MatButton Dense="true" Icon="check_circle" OnClick="@ShowSharpCode">Show C# code</MatButton>
-    <MatButton Dense="true" Icon="check_circle" OnClick="@ShowJson">Show JSON</MatButton>
+    <a id="github" href="https://github.com/ar1st0crat/NWaves/wiki/MFCC-and-Mel-Spectrogram">Read more about mel-spectrogram settings...</a>
+
+    <MatButton Dense Icon="check_circle" OnClick="@ComputeMelSpectrogram">Compute</MatButton>
+    <MatButton Dense Icon="check_circle" OnClick="@ShowPythonCode">Show Python code</MatButton>
+    <MatButton Dense Icon="check_circle" OnClick="@ShowSharpCode">Show C# code</MatButton>
+    <MatButton Dense Icon="check_circle" OnClick="@ShowJson">Show JSON</MatButton>
 
     @if (_melSpectrogram != null)
     {
-        <MatTable Items="@_melSpectrogram" PageSize="10" class="mat-elevation-z5">
+        <MatTable Items="@_melSpectrogram" PageSize="10" Striped AllowSelection class="mat-elevation-z5">
             <MatTableHeader>
                 @foreach (var coeffName in _extractor.FeatureDescriptions)
                 {
-                    <th style="font-size:0.8em; padding:2px;">@coeffName</th>
+                    <th class="coeff">@coeffName</th>
                 }
             </MatTableHeader>
             <MatTableRow>
                 @foreach (var coeff in context)
-                    {
-                    <td style="font-size:0.8em; padding:2px; height:10px;">@coeff.ToString("F4")</td>
-                    }
+                {
+                    <td class="coeff">@coeff.ToString("F4")</td>
+                }
             </MatTableRow>
         </MatTable>
     }
 </div>
 
-<MatDialog @bind-IsOpen="@_dialogIsOpen">
-    <MatDialogTitle>Code</MatDialogTitle>
-    <MatDialogContent>
-        <textarea rows="22" cols="52">
-            @_sourceCode
-        </textarea>
-    </MatDialogContent>
-    <MatDialogActions>
-        <MatButton OnClick="@CopyToClipboard">@_clipboardMessage</MatButton>
-        <MatButton OnClick="@(e => { _dialogIsOpen = false; })">OK</MatButton>
-    </MatDialogActions>
-</MatDialog>
+<CodeSnippet @bind-Show="@_showCodeSnippet" Code="@_sourceCode"></CodeSnippet>
 
 @code {
     [Parameter]
@@ -96,12 +91,12 @@
     bool _slaney;
 
     string _sourceCode;
-    string _clipboardMessage = "Copy to clipboard";
-    bool _dialogIsOpen = false;
-
+    bool _showCodeSnippet;
 
     WindowType[] _windowTypes = Enum.GetValues(typeof(WindowType)).Cast<WindowType>().ToArray();
+
     SpectrumType[] _spectrumTypes = Enum.GetValues(typeof(SpectrumType)).Cast<SpectrumType>().ToArray();
+
     NonLinearityType[] _nonLinearityTypes = Enum.GetValues(typeof(NonLinearityType)).Cast<NonLinearityType>().ToArray();
 
 
@@ -122,11 +117,7 @@
         }
         catch (Exception e)
         {
-            //_errorText = $"Error:\r\n{e.Message}\r\n{e.StackTrace}";
-        }
-        finally
-        {
-            StateHasChanged();
+            Toaster.Add(e.Message, MatToastType.Danger, "Error!");
         }
     }
 
@@ -145,51 +136,47 @@
         };
     }
 
-    const string PytorchTemplate = "import torchaudio\n" +
-                                   "import torchaudio.transforms as T\n" +
-                                   "import librosa\n\n" +
-                                   "signal, sample_rate = torchaudio.load(FILE_PATH)\n\n" +
-                                   "mel_spectrogram = T.MelSpectrogram(\n" +
-                                   "    sample_rate={0},\n" +
-                                   "    win_length={1}, hop_length={2},\n" +
-                                   "    n_fft={3},\n" +
-                                   "    power={4},\n" +
-                                   "    n_mels={5},\n" +
-                                   "    f_min={6}, f_max={7},\n" +
-                                   "    center=False, mel_scale={9}, norm={8})\n\n" +
-                                   "melspec = mel_spectrogram(signal)\n\n" +
-                                   "#librosa: \n" +
-                                   "melspec_librosa = librosa.feature.melspectrogram(\n" +
-                                   "    y=signal.numpy()[0], sr={0}, n_fft={3},\n" +
-                                   "    win_length={1}, hop_length={2},\n" +
-                                   "    n_mels={5}, fmin={6}, fmax={7},\n" +
-                                   "    power={4}, htk={10}, norm={8}, center=False)\n\n" +
-                                   "melspec[0][:, 0]   # get the first vector\n";
+    void UpdateFilterbank()
+    {
+        if (_options.FftSize <= 0)
+        {
+            _options.FftSize = MathUtils.NextPowerOfTwo(_options.FrameSize);
+        }
+
+        if (_slaney)
+        {
+            _options.FilterBank = FilterBanks.MelBankSlaney(_melCount,
+                                                            _options.FftSize,
+                                                            Signal.SamplingRate,
+                                                            _options.LowFrequency,
+                                                            _options.HighFrequency);
+        }
+        else
+        {
+            var melBands = FilterBanks.MelBands(_melCount,
+                                                Signal.SamplingRate,
+                                                _options.LowFrequency,
+                                                _options.HighFrequency);
+            
+            _options.FilterBank = FilterBanks.Triangular(_options.FftSize,
+                                                         Signal.SamplingRate,
+                                                         melBands,
+                                                         mapper: Scale.HerzToMel);
+        }
+
+        _filterbankPlot?.UpdateAsync(_options.FilterBank);
+    }
 
     void ShowPythonCode()
     {
-        _sourceCode = string.Format(
-                            PytorchTemplate,
-                            Signal.SamplingRate,
-                            _options.FrameSize,
-                            _options.HopSize,
-                            _options.FftSize,
-                            _options.SpectrumType == SpectrumType.Magnitude ||
-                            _options.SpectrumType == SpectrumType.MagnitudeNormalized ? 1 : 2,
-                            _melCount,
-                            _options.LowFrequency,
-                            _options.HighFrequency > 0 ? _options.HighFrequency : "None",
-                            _slaney ? "'slaney'" : "None",
-                            _slaney ? "'slaney'" : "'htk'",
-                            !_slaney);
-
-        _clipboardMessage = "Copy to clipboard";
-        _dialogIsOpen = true;
+        _sourceCode = MfccTemplates.PythonCode(_options, _slaney);
+        _showCodeSnippet = true;
     }
 
     void ShowSharpCode()
     {
-        // TODO
+        _sourceCode = MfccTemplates.CSharpCode(_options, _slaney);
+        _showCodeSnippet = true;
     }
 
     void ShowJson()
@@ -206,34 +193,7 @@
             _sourceCode = json.ReadToEnd();
         }
 
-        _clipboardMessage = "Copy to clipboard";
-        _dialogIsOpen = true;
+        _showCodeSnippet = true;
     }
 
-    void UpdateFilterbank()
-    {
-        if (_options.FftSize <= 0)
-        {
-            _options.FftSize = MathUtils.NextPowerOfTwo(_options.FrameSize);
-        }
-
-        if (_slaney)
-        {
-            _options.FilterBank = FilterBanks.MelBankSlaney(_melCount, _options.FftSize, Signal.SamplingRate, _options.LowFrequency, _options.HighFrequency);
-        }
-        else
-        {
-            var melBands = FilterBanks.MelBands(_melCount, Signal.SamplingRate, _options.LowFrequency, _options.HighFrequency);
-            _options.FilterBank = FilterBanks.Triangular(_options.FftSize, Signal.SamplingRate, melBands, mapper: Scale.HerzToMel);
-        }
-
-        _filterbankPlot?.UpdateAsync(_options.FilterBank);
-    }
-
-    async Task CopyToClipboard()
-    {
-        await jsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _sourceCode);
-
-        _clipboardMessage = "Copied!";
-    }
 }

@@ -1,0 +1,48 @@
+﻿@inject IJSRuntime jsRuntime
+
+<MatDialog @bind-IsOpen="@Show">
+    <MatDialogTitle>Code</MatDialogTitle>
+    <MatDialogContent>
+        <textarea rows="22" cols="52">@Code</textarea>
+    </MatDialogContent>
+    <MatDialogActions>
+        <MatButton OnClick="@CopyToClipboard">@_clipboardMessage</MatButton>
+        <MatButton OnClick="@Close">OK</MatButton>
+    </MatDialogActions>
+</MatDialog>
+
+@code {
+    [Parameter]
+    public bool Show
+    {
+        get => _show;
+        set
+        {
+            if (_show == value) return;
+            _show = value;
+            ShowChanged.InvokeAsync(value);
+        }
+    }
+    bool _show;
+
+    [Parameter]
+    public EventCallback<bool> ShowChanged { get; set; }
+
+    [Parameter]
+    public string Code { get; set; }
+
+    string _sourceCode;
+    string _clipboardMessage = "Copy to clipboard";
+
+    async Task CopyToClipboard()
+    {
+        await jsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", _sourceCode);
+        _clipboardMessage = "Copied!";
+    }
+
+    void Close()
+    {
+        Show = false;
+        _clipboardMessage = "Copy to clipboard";
+    }
+}
